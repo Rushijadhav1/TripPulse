@@ -1,15 +1,19 @@
+"use client";
+
+import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
+  Loader2,
   MapPin,
   Plane,
   Plus,
   Sparkles,
 } from "lucide-react";
+import { useQuery } from "convex/react";
 
-import { isAuthenticated } from "@/lib/auth-server";
-import { redirect } from "next/navigation";
-
+import { api } from "@/convex/_generated/api";
+import { GenerateButton } from "@/components/ui/generate-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,26 +25,55 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { LightLines } from "@/components/ui/light-lines";
 
-export default async function DashboardPage() {
-  const authenticated = await isAuthenticated();
+export default function DashboardPage() {
+  const trips = useQuery(api.trips.getMyTrips);
 
-  if (!authenticated) {
-    redirect("/sign-in");
-  }
+  const loading = trips === undefined;
+
+  const totalTrips = trips?.length ?? 0;
+
+  const countries = trips
+    ? new Set(
+        trips
+          .map((trip) => trip.country)
+          .filter((country): country is string => Boolean(country)),
+      ).size
+    : 0;
+
+  const totalDays =
+    trips?.reduce((total, trip) => {
+      const start = new Date(trip.startDate);
+      const end = new Date(trip.endDate);
+
+      const difference =
+        Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
+        1;
+
+      return total + Math.max(difference, 0);
+    }, 0) ?? 0;
+
+  const recentTrips = trips?.slice(0, 3) ?? [];
 
   return (
-    <main className="min-h-dvh bg-muted/30 pb-24">
+    <main className="min-h-dvh pb-24">
+      <LightLines className="fixed inset-0 -z-10">
+        <div />
+      </LightLines>
       {/* Header */}
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 font-semibold"
+          >
+            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Plane className="size-5" />
-            </div>
+            </span>
 
-            <span className="font-semibold">VoyageAI</span>
-          </div>
+            <span>VoyageAI</span>
+          </Link>
 
           <Avatar className="size-9">
             <AvatarFallback>R</AvatarFallback>
@@ -52,21 +85,18 @@ export default async function DashboardPage() {
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         {/* Greeting */}
         <section>
-          <p className="text-sm text-muted-foreground">
-            Welcome back 👋
-          </p>
+          <p className="text-sm text-muted-foreground">Welcome back 👋</p>
 
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
             Plan your next adventure
           </h1>
 
           <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Tell VoyageAI where you want to go and let AI create your
-            personalized travel plan.
+            Create personalized travel plans with the help of VoyageAI.
           </p>
         </section>
 
-        {/* AI Planner */}
+        {/* Planner CTA */}
         <Card className="overflow-hidden border-primary/20">
           <CardContent className="p-5 sm:p-6">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -80,20 +110,21 @@ export default async function DashboardPage() {
                     AI Planner
                   </Badge>
 
-                  <h2 className="text-lg font-semibold">
-                    Create a new trip
-                  </h2>
+                  <h2 className="text-lg font-semibold">Create a new trip</h2>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Get an itinerary, budget, activities and packing list.
+                    Tell us where you want to go and we ll help plan it.
                   </p>
                 </div>
               </div>
 
-              <Button className="w-full sm:w-auto">
+              <Link
+                href="/planner"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:w-auto"
+              >
                 Start planning
                 <ArrowRight className="size-4" />
-              </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -103,27 +134,42 @@ export default async function DashboardPage() {
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Trips</p>
-              <p className="mt-1 text-2xl font-bold">0</p>
+
+              {loading ? (
+                <Loader2 className="mt-2 size-5 animate-spin" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold">{totalTrips}</p>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Countries</p>
-              <p className="mt-1 text-2xl font-bold">0</p>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Saved</p>
-              <p className="mt-1 text-2xl font-bold">0</p>
+              {loading ? (
+                <Loader2 className="mt-2 size-5 animate-spin" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold">{countries}</p>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Days planned</p>
+
+              {loading ? (
+                <Loader2 className="mt-2 size-5 animate-spin" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold">{totalDays}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Saved</p>
               <p className="mt-1 text-2xl font-bold">0</p>
             </CardContent>
           </Card>
@@ -134,100 +180,177 @@ export default async function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="font-semibold">Your trips</h2>
+
               <p className="text-sm text-muted-foreground">
-                Your upcoming adventures
+                Your latest adventures
               </p>
             </div>
 
-            <Button variant="outline" size="sm">
+            <Link
+              href="/planner"
+              className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+            >
               <Plus className="size-4" />
               New trip
-            </Button>
+            </Link>
           </div>
 
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-muted">
-                <MapPin className="size-6 text-muted-foreground" />
-              </div>
+          {loading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-16">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              </CardContent>
+            </Card>
+          ) : recentTrips.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div className="flex size-14 items-center justify-center rounded-2xl bg-muted">
+                  <MapPin className="size-6 text-muted-foreground" />
+                </div>
 
-              <h3 className="mt-4 font-semibold">
-                No trips yet
-              </h3>
+                <h3 className="mt-4 font-semibold">No trips yet</h3>
 
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Your adventures will appear here once you create your first
-                trip.
-              </p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Create your first trip and let VoyageAI build your
+                  personalized itinerary.
+                </p>
 
-              <Button className="mt-5">
-                <Sparkles className="size-4" />
-                Plan my first trip
-              </Button>
-            </CardContent>
-          </Card>
+                <Link
+                  href="/planner"
+                  className="mt-5 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Sparkles className="mr-2 size-4" />
+                  Plan my first trip
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {recentTrips.map((trip) => (
+                <Card key={trip._id} className="overflow-hidden">
+                  <div className="h-32 bg-linear-to-br from-primary/20 via-background to-primary/5" />
+
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <CardTitle className="line-clamp-1">
+                          {trip.title}
+                        </CardTitle>
+
+                        <CardDescription className="mt-1 flex items-center gap-1">
+                          <MapPin className="size-3.5" />
+                          {trip.destination}
+                        </CardDescription>
+                      </div>
+
+                      <Badge variant="secondary">{trip.status}</Badge>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CalendarDays className="size-4" />
+                      <span>
+                        {trip.startDate} → {trip.endDate}
+                      </span>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Budget</p>
+
+                        <p className="font-semibold">
+                          {trip.currency} {trip.budget.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <Link
+                        href={`/trips/${trip._id}`}
+                        className="inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                      >
+                        View trip
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </section>
 
         <Separator />
 
         {/* Quick actions */}
         <section>
-          <h2 className="font-semibold">Quick actions</h2>
+  <h2 className="font-semibold">Quick actions</h2>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Button
-              variant="outline"
-              className="h-auto justify-start p-4"
-            >
-              <CalendarDays className="size-5" />
-              <span className="ml-2">Explore itinerary</span>
-            </Button>
+  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <Button
+      variant="outline"
+      className="h-16 w-full justify-start p-4"
+    >
+      <CalendarDays className="size-5" />
+      <span className="ml-2">My trips</span>
+    </Button>
 
-            <Button
-              variant="outline"
-              className="h-auto justify-start p-4"
-            >
-              <MapPin className="size-5" />
-              <span className="ml-2">Explore destinations</span>
-            </Button>
+    <Button
+      variant="outline"
+      className="h-16 w-full justify-start p-4"
+    >
+      <MapPin className="size-5" />
+      <span className="ml-2">Explore destinations</span>
+    </Button>
 
-            <Button
-              variant="outline"
-              className="h-auto justify-start p-4"
-            >
-              <Sparkles className="size-5" />
-              <span className="ml-2">Ask VoyageAI</span>
-            </Button>
-          </div>
-        </section>
+    <div className="flex h-16 w-full items-center">
+  <GenerateButton
+    type="button"
+    text="Ask VoyageAI"
+    hue={250}
+    className="w-full"
+  />
+</div>
+  </div>
+</section>
       </div>
 
-      {/* Mobile bottom navigation */}
+      {/* Mobile navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur md:hidden">
         <div className="grid h-16 grid-cols-4">
-          <button className="flex flex-col items-center justify-center gap-1 text-xs text-primary">
+          <Link
+            href="/dashboard"
+            className="flex flex-col items-center justify-center gap-1 text-xs text-primary"
+          >
             <Plane className="size-5" />
             Home
-          </button>
+          </Link>
 
-          <button className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+          <Link
+            href="/planner"
+            className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+          >
             <Sparkles className="size-5" />
             Planner
-          </button>
+          </Link>
 
-          <button className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+          <Link
+            href="/dashboard"
+            className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+          >
             <MapPin className="size-5" />
             Trips
-          </button>
+          </Link>
 
-          <button className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+          <Link
+            href="/profile"
+            className="flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+          >
             <Avatar className="size-5">
-              <AvatarFallback className="text-[10px]">
-                R
-              </AvatarFallback>
+              <AvatarFallback className="text-[10px]">R</AvatarFallback>
             </Avatar>
             Profile
-          </button>
+          </Link>
         </div>
       </nav>
     </main>

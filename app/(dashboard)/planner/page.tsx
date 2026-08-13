@@ -32,7 +32,7 @@ export default function PlannerPage() {
   const router = useRouter();
 
   const createTrip = useMutation(api.trips.createTrip);
-
+  const updateTripWithAI = useMutation(api.trips.updateTripWithAI);
   const [destination, setDestination] = useState("");
   const [country, setCountry] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -52,41 +52,59 @@ export default function PlannerPage() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
 
-    setError("");
+  setError("");
 
-    if (!destination.trim()) {
-      setError("Please enter a destination.");
-      return;
-    }
+  if (!destination.trim()) {
+    setError("Please enter a destination.");
+    return;
+  }
 
-    if (!startDate || !endDate) {
-      setError("Please select your travel dates.");
-      return;
-    }
+  if (!startDate || !endDate) {
+    setError("Please select your travel dates.");
+    return;
+  }
 
-    if (new Date(endDate) < new Date(startDate)) {
-      setError("End date cannot be before start date.");
-      return;
-    }
+  if (new Date(endDate) < new Date(startDate)) {
+    setError("End date cannot be before start date.");
+    return;
+  }
 
-    if (!budget || Number(budget) <= 0) {
-      setError("Please enter a valid budget.");
-      return;
-    }
+  if (!budget || Number(budget) <= 0) {
+    setError("Please enter a valid budget.");
+    return;
+  }
 
-    if (travelStyle.length === 0) {
-      setError("Choose at least one travel style.");
-      return;
-    }
+  if (travelStyle.length === 0) {
+    setError("Choose at least one travel style.");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      await createTrip({
-        title: `${destination} Adventure`,
+    // 1. Create the initial trip
+    const tripId = await createTrip({
+      title: `${destination} Adventure`,
+      destination: destination.trim(),
+      country: country.trim() || undefined,
+      startDate,
+      endDate,
+      travelers,
+      budget: Number(budget),
+      currency,
+      travelStyle,
+    });
+
+    // 2. Ask Groq to generate the itinerary
+    const response = await fetch("/api/ai/itinerary", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         destination: destination.trim(),
         country: country.trim() || undefined,
         startDate,
@@ -95,15 +113,40 @@ export default function PlannerPage() {
         budget: Number(budget),
         currency,
         travelStyle,
-      });
+      }),
+    });
 
-      router.push("/dashboard");
-    } catch (err) {
-      console.error(err);
-      setError("Unable to create your trip. Please try again.");
-      setLoading(false);
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.error || "Failed to generate itinerary.",
+      );
     }
-  };
+
+    // 3. Save the AI result into Convex
+    await updateTripWithAI({
+      tripId,
+      summary: result.data.summary,
+      itinerary: result.data.itinerary,
+      budgetBreakdown: result.data.budgetBreakdown,
+      packingList: result.data.packingList,
+    });
+
+    // 4. Open the trip
+    router.push(`/trips/${tripId}`);
+  } catch (err) {
+    console.error("Trip generation failed:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to create your trip. Please try again.",
+    );
+
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-dvh bg-muted/30 px-4 py-6 sm:px-6 sm:py-8">
@@ -330,7 +373,7 @@ export default function PlannerPage() {
                 {loading ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Creating trip...
+                     AI is planning your trip...
                   </>
                 ) : (
                   <>
