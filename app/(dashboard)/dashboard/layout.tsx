@@ -1,16 +1,15 @@
-import { isAuthenticated } from "@/lib/auth-server";
-import { redirect } from "next/navigation";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const authenticated = await isAuthenticated();
+  return (
+    <div>
+      <DashboardHeader />
 
-  if (!authenticated) {
-    redirect("/sign-in");
-  }
-
-  return children;
+      {children}
+    </div>
+  );
 }

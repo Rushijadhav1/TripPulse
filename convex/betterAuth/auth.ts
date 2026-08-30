@@ -9,8 +9,12 @@ import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import schema from "./schema";
 
+import { sendPasswordResetEmail } from "./email";
 // Better Auth Component
-export const authComponent = createClient<DataModel, typeof schema>(
+export const authComponent = createClient<
+  DataModel,
+  typeof schema
+>(
   components.betterAuth,
   {
     local: {
@@ -21,18 +25,51 @@ export const authComponent = createClient<DataModel, typeof schema>(
 );
 
 // Better Auth Options
-export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
+export const createAuthOptions = (
+  ctx: GenericCtx<DataModel>,
+) => {
   return {
-    appName: "VoyageAI",
+    appName: "TripPulse",
 
-    baseURL: process.env.SITE_URL,
+    baseURL: process.env.BETTER_AUTH_URL,
 
     secret: process.env.BETTER_AUTH_SECRET,
 
     database: authComponent.adapter(ctx),
 
-    emailAndPassword: {
-      enabled: true,
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+
+    trustedOrigins: [
+      "http://localhost:3000",
+      "http://*:3000",
+      "https://*:3000",
+    ],
+
+   emailAndPassword: {
+  enabled: true,
+
+  sendResetPassword: async ({
+    user,
+    url,
+  }) => {
+    await sendPasswordResetEmail({
+      email: user.email,
+      name: user.name,
+      resetUrl: url,
+    });
+  },
+},
+
+    user: {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: false,
+      },
     },
 
     plugins: [
@@ -49,6 +86,10 @@ export const options = createAuthOptions(
 );
 
 // Better Auth Instance
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth(createAuthOptions(ctx));
+export const createAuth = (
+  ctx: GenericCtx<DataModel>,
+) => {
+  return betterAuth(
+    createAuthOptions(ctx),
+  );
 };

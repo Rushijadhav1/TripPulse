@@ -3,14 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "cdev": "bunx convex dev",
+    "dev": "bun --bun next dev"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@convex-dev/better-auth": "^0.12.5",
+    "@react-pdf/renderer": "^4.6.1",
     "@shadcn/react": "^0.3.0",
     "better-auth": "^1.6.26",
     "class-variance-authority": "^0.7.1",
@@ -22,17 +25,21 @@
     "groq-sdk": "^1.5.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.30.0",
+    "maplibre-gl": "^6.3.0",
+    "motion": "^12.43.0",
     "next": "16.3.0",
     "next-themes": "^0.4.6",
     "react": "19.2.8",
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.8",
+    "react-map-gl": "^8.1.2",
     "react-resizable-panels": "^4.12.2",
     "recharts": "3.8.0",
-    "shadcn": "^4.16.2",
+    "resend": "^6.20.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -41,16 +48,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "shadcn": "^4.16.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "bun@1.3.14",
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "trustedDependencies": [
-    "sharp",
-    "unrs-resolver"
-  ]
+  "packageManager": "bun@1.3.14"
 }

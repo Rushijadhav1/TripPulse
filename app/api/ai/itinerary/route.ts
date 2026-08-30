@@ -4,6 +4,7 @@ import { z } from "zod";
 import { groq } from "@/lib/ai/groq";
 import { buildItineraryPrompt } from "@/lib/ai/prompts/itinerary";
 import { itinerarySchema } from "@/lib/ai/schemas/itinerary.schema";
+import { requireAuth } from "@/lib/auth-api";
 
 const requestSchema = z.object({
   destination: z.string().min(2),
@@ -17,6 +18,9 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireAuth();
+  if (!auth.authenticated) return auth.response;
+
   try {
     const body = await request.json();
 
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "You are VoyageAI, a professional AI travel planner. Return only valid JSON. Never include markdown fences or additional text.",
+            "You are TripPulse, a professional AI travel planner. Return only valid JSON. Never include markdown fences or additional text.",
         },
         {
           role: "user",

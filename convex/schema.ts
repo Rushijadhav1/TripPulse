@@ -2,6 +2,13 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  userProfiles: defineTable({
+    userId: v.string(),
+    avatarStorageId: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"]),
+
   trips: defineTable({
     userId: v.string(),
 
@@ -55,13 +62,14 @@ export default defineSchema({
     }),
 
     // Packing checklist
-    packingList: v.array(
-      v.object({
-        item: v.string(),
-        category: v.string(),
-        essential: v.boolean(),
-      }),
-    ),
+   packingList: v.array(
+  v.object({
+    item: v.string(),
+    category: v.string(),
+    essential: v.boolean(),
+    checked: v.boolean(),
+  }),
+),
 
     // Status
     status: v.union(
@@ -70,10 +78,14 @@ export default defineSchema({
       v.literal("archived"),
     ),
 
+    isPublic: v.optional(v.boolean()),
+    shareToken: v.optional(v.string()),
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "status"])
-    .index("by_destination", ["destination"]),
+    .index("by_destination", ["destination"])
+    .index("by_share_token", ["shareToken"]),
 });

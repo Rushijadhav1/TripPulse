@@ -1,19 +1,12 @@
-import { isAuthenticated } from "@/lib/auth-server";
-import { redirect } from "next/navigation";
-
 import TripDetails from "./trip-details";
+
+type TripPageProps = {
+  params: Promise<{ tripId: string }>;
+};
 
 export default async function TripPage({
   params,
-}: {
-  params: Promise<{ tripId: string }>;
-}) {
-  const authenticated = await isAuthenticated();
-
-  if (!authenticated) {
-    redirect("/sign-in");
-  }
-
+}: TripPageProps) {
   const { tripId } = await params;
 
   return <TripDetails tripId={tripId} />;

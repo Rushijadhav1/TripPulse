@@ -1,37 +1,81 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Loader2,
   MapPin,
-  RefreshCw,
-  Trash2,
 } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 
+import { useAuthSession } from "@/lib/auth-client";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { TripHeader } from "@/components/trips/trip-header";
+import { TripOverview } from "@/components/trips/trip-overview";
+import { TripWeather } from "@/components/trips/trip-weather";
+import { TripMap } from "@/components/trips/trip-map";
+import { TripItinerary } from "@/components/trips/trip-itinerary";
+import { TripNearbyPlaces } from "@/components/trips/trip-nearby-places";
+import { TripTravelStyle } from "@/components/trips/trip-travel-style";
+import { TripBudget } from "@/components/trips/trip-budget";
+import { TripPacking } from "@/components/trips/trip-packing";
 
 type TripDetailsProps = {
   tripId: string;
 };
 
-export default function TripDetails({ tripId }: TripDetailsProps) {
-  const [regenerating, setRegenerating] = useState(false);
+type WeatherData = {
+  location: {
+    name: string;
+    country: string;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+  };
+
+  current: {
+    temperature: number;
+    apparentTemperature: number;
+    humidity: number;
+    precipitation: number;
+    weatherCode: number | null;
+    windSpeed: number;
+  };
+
+  daily: {
+    date: string;
+    weatherCode: number | null;
+    temperatureMax: number;
+    temperatureMin: number;
+    precipitationProbability: number | null;
+    sunrise: string;
+    sunset: string;
+  }[];
+};
+
+export default function TripDetails({
+  tripId,
+}: TripDetailsProps) {
+  const router = useRouter();
+
+  const { data: session, isPending: sessionPending } =
+    useAuthSession();
+
+  const [regenerating, setRegenerating] =
+    useState(false);
+
+  const [weather, setWeather] =
+    useState<WeatherData | null>(null);
+
+  const [weatherLoading, setWeatherLoading] =
+    useState(true);
+
+  const [weatherError, setWeatherError] =
+    useState("");
 
   const tripIdTyped = tripId as Id<"trips">;
 
@@ -39,7 +83,9 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
     tripId: tripIdTyped,
   });
 
-  const deleteTrip = useMutation(api.trips.deleteTrip);
+  const deleteTrip = useMutation(
+    api.trips.deleteTrip,
+  );
 
   const updateTripWithAI = useMutation(
     api.trips.updateTripWithAI,
@@ -57,9 +103,13 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
         tripId: tripIdTyped,
       });
 
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (error) {
-      console.error("Failed to delete trip:", error);
+      console.error(
+        "Failed to delete trip:",
+        error,
+      );
+      toast.error("Failed to delete trip. Please try again.");
     }
   };
 
@@ -69,28 +119,32 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
     try {
       setRegenerating(true);
 
-      const response = await fetch("/api/ai/itinerary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "/api/ai/itinerary",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            destination: trip.destination,
+            country: trip.country,
+            startDate: trip.startDate,
+            endDate: trip.endDate,
+            travelers: trip.travelers,
+            budget: trip.budget,
+            currency: trip.currency,
+            travelStyle: trip.travelStyle,
+          }),
         },
-        body: JSON.stringify({
-          destination: trip.destination,
-          country: trip.country,
-          startDate: trip.startDate,
-          endDate: trip.endDate,
-          travelers: trip.travelers,
-          budget: trip.budget,
-          currency: trip.currency,
-          travelStyle: trip.travelStyle,
-        }),
-      });
+      );
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.error || "Failed to regenerate itinerary.",
+          result.error ||
+            "Failed to regenerate itinerary.",
         );
       }
 
@@ -98,20 +152,80 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
         tripId: trip._id,
         summary: result.data.summary,
         itinerary: result.data.itinerary,
-        budgetBreakdown: result.data.budgetBreakdown,
+        budgetBreakdown:
+          result.data.budgetBreakdown,
         packingList: result.data.packingList,
       });
     } catch (error) {
-      console.error("Failed to regenerate trip:", error);
+      console.error(
+        "Failed to regenerate trip:",
+        error,
+      );
+      toast.error("Failed to regenerate itinerary. Please try again.");
     } finally {
       setRegenerating(false);
     }
   };
 
+  useEffect(() => {
+    if (!trip?.destination) return;
+
+    const fetchWeather = async () => {
+      try {
+        setWeatherLoading(true);
+        setWeatherError("");
+
+        const response = await fetch(
+          `/api/weather?destination=${encodeURIComponent(
+            trip.destination,
+          )}`,
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error ||
+              "Unable to fetch weather.",
+          );
+        }
+
+        setWeather(result.data);
+      } catch (error) {
+        console.error(
+          "Weather fetch failed:",
+          error,
+        );
+
+        setWeather(null);
+        setWeatherError(
+          "Unable to load weather.",
+        );
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+  }, [trip?.destination]);
+
+  if (sessionPending) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </main>
+    );
+  }
+
+  if (!session?.user) {
+    router.push("/sign-in?callbackUrl=/trips");
+    return null;
+  }
+
   if (trip === undefined) {
     return (
       <main className="flex min-h-dvh items-center justify-center">
-        <Loader2 className="size-6 animate-spin" />
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </main>
     );
   }
@@ -121,15 +235,18 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
         <MapPin className="size-10 text-muted-foreground" />
 
-        <h1 className="text-2xl font-bold">Trip not found</h1>
+        <h1 className="text-2xl font-semibold">
+          Trip unavailable
+        </h1>
 
-        <p className="text-sm text-muted-foreground">
-          This trip doesn't exist or is no longer available.
+        <p className="max-w-md text-sm text-muted-foreground">
+          This trip doesn&apos;t exist or you don&apos;t
+          have permission to view it.
         </p>
 
         <Link
           href="/dashboard"
-          className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+          className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
         >
           Back to dashboard
         </Link>
@@ -138,293 +255,78 @@ export default function TripDetails({ tripId }: TripDetailsProps) {
   }
 
   return (
-    <main className="min-h-dvh bg-muted/30 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          Back to dashboard
-        </Link>
+    <main className="min-h-dvh px-4 py-6 pb-28 sm:px-6 sm:py-8 md:pb-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {/* Trip Header */}
+        <TripHeader
+          trip={trip}
+          onRegenerate={handleRegenerate}
+          onDelete={handleDeleteTrip}
+          regenerating={regenerating}
+        />
 
-        {/* Header */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle className="text-2xl">
-                  {trip.title}
-                </CardTitle>
+        {/* AI Overview */}
+        <TripOverview summary={trip.summary} />
 
-                <CardDescription className="mt-2 flex items-center gap-1">
-                  <MapPin className="size-4" />
-                  {trip.destination}
-                  {trip.country ? `, ${trip.country}` : ""}
-                </CardDescription>
-              </div>
+        {/* Weather + Map */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TripWeather
+            weather={weather}
+            loading={weatherLoading}
+            error={weatherError}
+            destination={trip.destination}
+          />
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {trip.status}
-                </Badge>
+          <TripMap
+            latitude={
+              weather?.location.latitude ?? null
+            }
+            longitude={
+              weather?.location.longitude ?? null
+            }
+            locationName={
+              weather?.location.name ??
+              trip.destination
+            }
+          />
+        </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={handleRegenerate}
-                  disabled={regenerating}
-                >
-                  <RefreshCw
-                    className={cn(
-                      "size-4",
-                      regenerating && "animate-spin",
-                    )}
-                  />
+        {/* Nearby Places */}
+        <TripNearbyPlaces
+          latitude={
+            weather?.location.latitude ?? null
+          }
+          longitude={
+            weather?.location.longitude ?? null
+          }
+          destination={trip.destination}
+        />
 
-                  {regenerating
-                    ? "Regenerating..."
-                    : "Regenerate"}
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  type="button"
-                  onClick={handleDeleteTrip}
-                >
-                  <Trash2 className="size-4" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Dates
-              </p>
-
-              <p className="mt-1 font-medium">
-                {trip.startDate} → {trip.endDate}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Travelers
-              </p>
-
-              <p className="mt-1 font-medium">
-                {trip.travelers}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Budget
-              </p>
-
-              <p className="mt-1 font-medium">
-                {trip.currency}{" "}
-                {trip.budget.toLocaleString()}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Trip summary</CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {trip.summary ||
-                "Your AI-generated trip summary will appear here."}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Travel styles */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Travel style</CardTitle>
-          </CardHeader>
-
-          <CardContent className="flex flex-wrap gap-2">
-            {trip.travelStyle.map((style) => (
-              <Badge key={style} variant="outline">
-                {style}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
+        {/* Travel Style */}
+        <TripTravelStyle
+          styles={trip.travelStyle}
+        />
 
         {/* Itinerary */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">
-              Itinerary
-            </h2>
+        <TripItinerary
+          itinerary={trip.itinerary}
+          currency={trip.currency}
+        />
 
-            <p className="text-sm text-muted-foreground">
-              Your day-by-day travel plan.
-            </p>
-          </div>
+        {/* Budget + Packing */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TripBudget
+            currency={trip.currency}
+            budgetBreakdown={
+              trip.budgetBreakdown
+            }
+          />
 
-          {trip.itinerary.length === 0 ? (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Your itinerary hasn't been generated yet.
-              </CardContent>
-            </Card>
-          ) : (
-            trip.itinerary.map((day) => (
-              <Card key={`${day.day}-${day.date}`}>
-                <CardHeader>
-                  <CardTitle>
-                    Day {day.day} · {day.title}
-                  </CardTitle>
-
-                  <CardDescription>
-                    {day.date}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {day.activities.map((activity, index) => (
-                    <div
-                      key={`${activity.title}-${index}`}
-                    >
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {activity.title}
-                          </p>
-
-                          <p className="text-sm text-muted-foreground">
-                            {activity.description}
-                          </p>
-
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {activity.time} ·{" "}
-                            {activity.location}
-                          </p>
-                        </div>
-
-                        <p className="text-sm font-medium">
-                          {trip.currency}{" "}
-                          {activity.estimatedCost.toLocaleString()}
-                        </p>
-                      </div>
-
-                      {index <
-                        day.activities.length - 1 && (
-                        <Separator className="mt-4" />
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </section>
-
-        {/* Budget */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Budget breakdown</CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-3">
-            {[
-              [
-                "Accommodation",
-                trip.budgetBreakdown.accommodation,
-              ],
-              ["Food", trip.budgetBreakdown.food],
-              [
-                "Transportation",
-                trip.budgetBreakdown.transportation,
-              ],
-              [
-                "Activities",
-                trip.budgetBreakdown.activities,
-              ],
-              [
-                "Miscellaneous",
-                trip.budgetBreakdown.miscellaneous,
-              ],
-            ].map(([label, amount]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-muted-foreground">
-                  {label}
-                </span>
-
-                <span className="font-medium">
-                  {trip.currency}{" "}
-                  {Number(amount).toLocaleString()}
-                </span>
-              </div>
-            ))}
-
-            <Separator />
-
-            <div className="flex items-center justify-between font-semibold">
-              <span>Total</span>
-
-              <span>
-                {trip.currency}{" "}
-                {trip.budgetBreakdown.total.toLocaleString()}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Packing */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Packing list</CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-3">
-            {trip.packingList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Your packing list hasn't been generated yet.
-              </p>
-            ) : (
-              trip.packingList.map((item, index) => (
-                <div
-                  key={`${item.item}-${index}`}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {item.item}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      {item.category}
-                    </p>
-                  </div>
-
-                  {item.essential && (
-                    <Badge variant="secondary">
-                      Essential
-                    </Badge>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+          <TripPacking
+            tripId={trip._id}
+            items={trip.packingList}
+          />
+        </div>
       </div>
     </main>
   );

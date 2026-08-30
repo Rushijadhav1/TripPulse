@@ -11,7 +11,7 @@ export type TripPlanningInput = {
 
 export function buildItineraryPrompt(input: TripPlanningInput) {
   return `
-You are VoyageAI, an expert travel planner.
+You are TripPulse, an expert travel planner.
 
 Create a realistic personalized travel itinerary using:
 
