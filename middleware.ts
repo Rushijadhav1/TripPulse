@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const SESSION_COOKIE = "better-auth.session_token";
+const SESSION_COOKIES = [
+  "__Secure-better-auth.session_token",
+  "better-auth.session_token",
+];
 
 const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
 
@@ -31,7 +34,15 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
-export function proxy(request: NextRequest) {
+function getSessionToken(request: NextRequest): string | undefined {
+  for (const name of SESSION_COOKIES) {
+    const value = request.cookies.get(name)?.value;
+    if (value) return value;
+  }
+  return undefined;
+}
+
+export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/")) {
@@ -44,8 +55,14 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/planner") || pathname.startsWith("/trips") || pathname.startsWith("/profile") || pathname.startsWith("/explore")) {
-    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/planner") ||
+    pathname.startsWith("/trips") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/explore")
+  ) {
+    const sessionToken = getSessionToken(request);
 
     if (!sessionToken) {
       const signInUrl = new URL("/sign-in", request.url);
