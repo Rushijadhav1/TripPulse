@@ -43,21 +43,53 @@ function SignInPageContent() {
     setError("");
 
     try {
-      const { error } = await authClient.signIn.email({
-        email,
-        password,
-      });
+      const result = await Promise.race([
+        authClient.signIn.email(
+          { email, password, callbackURL: callbackUrl },
+          {
+            fetchOptions: {
+              onSuccess: () => {
+                // Give cookies a moment to settle, then hard-navigate so the
+                // auth middleware on the dashboard sees the fresh session.
+                setTimeout(() => {
+                  window.location.replace(callbackUrl);
+                }, 150);
+              },
+              onError: (ctx: { error?: { message?: string } }) => {
+                setError(
+                  ctx.error?.message ||
+                    "Invalid email or password. Please try again.",
+                );
+              },
+            },
+          },
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Sign in timed out. Please try again.")),
+            15000,
+          ),
+        ),
+      ]);
 
-      if (error) {
-        setError("Invalid email or password. Please try again.");
+      if (result.error) {
+        setError(
+          result.error.message ||
+            "Invalid email or password. Please try again.",
+        );
         setLoading(false);
         return;
       }
 
-      router.push(callbackUrl);
-    } catch {
+      // Fallback in case the onSuccess callback above doesn't fire.
+      setTimeout(() => {
+        window.location.replace(callbackUrl);
+      }, 300);
+    } catch (err) {
       setError(
-        "Unable to sign in. Please check your connection and try again.",
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in. Please check your connection and try again.",
       );
       setLoading(false);
     }

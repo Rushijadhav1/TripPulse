@@ -46,10 +46,7 @@ export const createAuthOptions = (
 
     trustedOrigins: [
       "http://localhost:3000",
-      "http://*:3000",
-      "https://*:3000",
       "https://trippulse-chi.vercel.app",
-
     ],
 
    emailAndPassword: {
