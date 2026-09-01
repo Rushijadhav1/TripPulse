@@ -38,6 +38,7 @@ export type WeatherResult = {
   daily: {
     date: string;
     weatherCode: number | null;
+    temperatureMax: number;
     temperatureMin: number;
     precipitationProbability: number | null;
     sunrise: string;

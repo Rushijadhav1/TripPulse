@@ -55,6 +55,16 @@ export function BudgetChart({
     },
   ].filter((item) => item.value > 0);
 
+  if (data.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex h-[280px] w-full items-center justify-center rounded-2xl border border-dashed text-sm text-muted-foreground">
+          No budget data yet.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="h-[280px] w-full">
