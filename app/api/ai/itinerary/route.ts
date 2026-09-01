@@ -29,8 +29,9 @@ export async function POST(request: Request) {
     const prompt = buildItineraryPrompt(input);
 
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0.2,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
@@ -68,15 +69,34 @@ try {
 
   parsed = JSON.parse(cleanedContent);
 } catch {
-  console.error("Invalid JSON returned by Groq:", content);
+  // Fallback: extract the first JSON object from the response
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
 
-  return NextResponse.json(
-    {
-      success: false,
-      error: "The AI returned invalid JSON.",
-    },
-    { status: 502 },
-  );
+  if (jsonMatch) {
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      console.error("Invalid JSON returned by Groq:", content);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The AI returned invalid JSON.",
+        },
+        { status: 502 },
+      );
+    }
+  } else {
+    console.error("No JSON found in Groq response:", content);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "The AI returned invalid JSON.",
+      },
+      { status: 502 },
+    );
+  }
 }
 
     const result = itinerarySchema.safeParse(parsed);
@@ -111,10 +131,16 @@ try {
       );
     }
 
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+
+    console.error("Itinerary generation error detail:", message);
+
     return NextResponse.json(
       {
         success: false,
         error: "Unable to generate your itinerary.",
+        detail: process.env.NODE_ENV === "development" ? message : undefined,
       },
       { status: 500 },
     );

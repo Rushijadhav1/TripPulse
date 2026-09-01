@@ -130,7 +130,7 @@ export const updateTripWithAI = mutation({
             time: v.string(),
             title: v.string(),
             description: v.string(),
-            location: v.string(),
+            location: v.optional(v.string()),
             estimatedCost: v.number(),
             category: v.string(),
           }),

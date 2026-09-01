@@ -62,56 +62,62 @@ export function TripPacking({ tripId, items }: TripPackingProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {Object.entries(grouped).map(([category, categoryItems]) => (
-          <div key={category}>
-            <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              {category}
-            </p>
+      {items.length === 0 ? (
+        <div className="flex h-[160px] items-center justify-center rounded-2xl border border-dashed text-sm text-muted-foreground">
+          No packing items yet.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(grouped).map(([category, categoryItems]) => (
+            <div key={category}>
+              <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                {category}
+              </p>
 
-            <ul className="space-y-1">
-              {categoryItems.map((item) => {
-                const globalIndex = items.indexOf(item);
+              <ul className="space-y-1">
+                {categoryItems.map((item) => {
+                  const globalIndex = items.indexOf(item);
 
-                return (
-                  <li
-                    key={globalIndex}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted/40"
-                  >
-                    <Checkbox
-                      checked={item.checked}
-                      disabled={togglingIndex === globalIndex}
-                      onCheckedChange={() =>
-                        handleToggle(globalIndex, item.checked)
-                      }
-                    />
-
-                    {togglingIndex === globalIndex ? (
-                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                    ) : item.essential ? (
-                      <Check className="size-3.5 text-primary" />
-                    ) : null}
-
-                    <span
-                      className={`text-sm ${
-                        item.checked ? "text-muted-foreground line-through" : ""
-                      }`}
+                  return (
+                    <li
+                      key={globalIndex}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted/40"
                     >
-                      {item.item}
-                    </span>
+                      <Checkbox
+                        checked={item.checked}
+                        disabled={togglingIndex === globalIndex}
+                        onCheckedChange={() =>
+                          handleToggle(globalIndex, item.checked)
+                        }
+                      />
 
-                    {item.essential && (
-                      <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                        Essential
+                      {togglingIndex === globalIndex ? (
+                        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                      ) : item.essential ? (
+                        <Check className="size-3.5 text-primary" />
+                      ) : null}
+
+                      <span
+                        className={`text-sm ${
+                          item.checked ? "text-muted-foreground line-through" : ""
+                        }`}
+                      >
+                        {item.item}
                       </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
+
+                      {item.essential && (
+                        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          Essential
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

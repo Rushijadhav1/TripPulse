@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Loader2, MapPin, Utensils, Landmark } from "lucide-react";
+import {
+  Building2,
+  Compass,
+  Landmark,
+  Loader2,
+  MapPin,
+  TreePine,
+  Utensils,
+  Castle,
+  Church,
+} from "lucide-react";
 
 type Place = {
   id: string;
@@ -10,6 +20,10 @@ type Place = {
   longitude: number;
   address: string;
   category: string;
+  distance: number;
+  website?: string;
+  phone?: string;
+  openingHours?: string;
 };
 
 type NearbyPlacesProps = {
@@ -17,17 +31,32 @@ type NearbyPlacesProps = {
   longitude: number;
 };
 
-type PlaceType = "restaurants" | "hotels" | "attractions";
+type PlaceType =
+  | "all"
+  | "attractions"
+  | "temples"
+  | "nature"
+  | "historical"
+  | "hotels"
+  | "restaurants";
 
 const tabs: {
   value: PlaceType;
   label: string;
   icon: typeof Utensils;
 }[] = [
+  { value: "all", label: "All", icon: Compass },
   {
-    value: "restaurants",
-    label: "Restaurants",
-    icon: Utensils,
+    value: "attractions",
+    label: "Attractions",
+    icon: Landmark,
+  },
+  { value: "temples", label: "Temples", icon: Church },
+  { value: "nature", label: "Nature", icon: TreePine },
+  {
+    value: "historical",
+    label: "Historical",
+    icon: Castle,
   },
   {
     value: "hotels",
@@ -35,18 +64,58 @@ const tabs: {
     icon: Building2,
   },
   {
-    value: "attractions",
-    label: "Attractions",
-    icon: Landmark,
+    value: "restaurants",
+    label: "Restaurants",
+    icon: Utensils,
   },
 ];
+
+function getCategoryLabel(category: string): string {
+  const labelMap: Record<string, string> = {
+    "heritage.unesco": "UNESCO Heritage",
+    "tourism.attraction": "Attraction",
+    "tourism.sights": "Sight",
+    "natural.mountain": "Mountain",
+    "natural.water": "Water",
+    "natural.forest": "Forest",
+    "natural.protected_area": "Nature Reserve",
+    national_park: "National Park",
+    "leisure.park": "Park",
+    "leisure.park.garden": "Garden",
+    "leisure.park.nature_reserve": "Nature Reserve",
+    "leisure.picnic": "Picnic Spot",
+    "entertainment.museum": "Museum",
+    "entertainment.culture": "Culture",
+    "religion.place_of_worship": "Temple",
+    "catering.restaurant": "Restaurant",
+    "catering.cafe": "Cafe",
+    "accommodation.hotel": "Hotel",
+    "accommodation.guest_house": "Guest House",
+  };
+
+  if (labelMap[category]) return labelMap[category];
+
+  // Fallback: extract last segment
+  const parts = category.split(".");
+  const last = parts[parts.length - 1];
+
+  return last?.replaceAll("_", " ") ?? "Place";
+}
+
+function getDistanceLabel(meters: number): string {
+  const km = meters / 1000;
+
+  if (km < 1) return `${Math.round(meters)} m`;
+
+  return `${km.toFixed(1)} km`;
+}
 
 export function NearbyPlaces({
   latitude,
   longitude,
 }: NearbyPlacesProps) {
   const [activeType, setActiveType] =
-    useState<PlaceType>("restaurants");
+    useState<PlaceType>("all");
 
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +129,15 @@ export function NearbyPlaces({
         setLoading(true);
         setError("");
 
+        const params = new URLSearchParams({
+          latitude: String(latitude),
+          longitude: String(longitude),
+          category: activeType,
+          limit: "12",
+        });
+
         const response = await fetch(
-          `/api/places/${activeType}?latitude=${latitude}&longitude=${longitude}`,
+          `/api/places?${params.toString()}`,
         );
 
         const result = await response.json();
@@ -75,13 +151,13 @@ export function NearbyPlaces({
         if (!cancelled) {
           setPlaces(result.data);
         }
-      } catch (error) {
-        console.error(`${activeType} fetch failed:`, error);
+      } catch (err) {
+        console.error(`${activeType} fetch failed:`, err);
 
         if (!cancelled) {
           setPlaces([]);
           setError(
-            `Unable to load nearby ${activeType}.`,
+            `Unable to load ${activeType} for this destination.`,
           );
         }
       } finally {
@@ -97,14 +173,6 @@ export function NearbyPlaces({
       cancelled = true;
     };
   }, [activeType, latitude, longitude]);
-
-  const getCategoryLabel = (category: string) => {
-    const lastPart = category.split(".").pop();
-
-    return (
-      lastPart?.replaceAll("_", " ") ?? "place"
-    );
-  };
 
   return (
     <div className="space-y-4">
@@ -137,7 +205,7 @@ export function NearbyPlaces({
       {loading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
-          Finding nearby {activeType}...
+          Finding {activeType === "all" ? "places" : activeType}...
         </div>
       ) : error ? (
         <p className="py-6 text-sm text-destructive">
@@ -145,14 +213,14 @@ export function NearbyPlaces({
         </p>
       ) : places.length === 0 ? (
         <p className="py-6 text-sm text-muted-foreground">
-          No nearby {activeType} found.
+          No popular places found for this destination.
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {places.map((place) => (
             <div
               key={place.id}
-              className="rounded-lg border p-4"
+              className="rounded-lg border p-4 transition-colors hover:bg-muted/30"
             >
               <div className="flex gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -168,9 +236,17 @@ export function NearbyPlaces({
                     {place.address}
                   </p>
 
-                  <p className="mt-2 text-xs capitalize text-muted-foreground">
-                    {getCategoryLabel(place.category)}
-                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize">
+                      {getCategoryLabel(place.category)}
+                    </span>
+
+                    {place.distance > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {getDistanceLabel(place.distance)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

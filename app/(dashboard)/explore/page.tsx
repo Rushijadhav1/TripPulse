@@ -10,11 +10,23 @@ import {
   Search,
   Utensils,
   Landmark,
+  Compass,
+  TreePine,
+  Castle,
+  Church,
+  X,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 
-type PlaceType = "restaurants" | "hotels" | "attractions";
+type PlaceType =
+  | "all"
+  | "restaurants"
+  | "hotels"
+  | "attractions"
+  | "temples"
+  | "nature"
+  | "historical";
 
 type Place = {
   id: string;
@@ -23,6 +35,10 @@ type Place = {
   longitude: number;
   address: string;
   category: string;
+  distance: number;
+  website?: string;
+  phone?: string;
+  openingHours?: string;
 };
 
 type LocationData = {
@@ -39,10 +55,18 @@ const tabs: {
   label: string;
   icon: typeof Utensils;
 }[] = [
+  { value: "all", label: "All", icon: Compass },
   {
-    value: "restaurants",
-    label: "Restaurants",
-    icon: Utensils,
+    value: "attractions",
+    label: "Attractions",
+    icon: Landmark,
+  },
+  { value: "temples", label: "Temples", icon: Church },
+  { value: "nature", label: "Nature", icon: TreePine },
+  {
+    value: "historical",
+    label: "Historical",
+    icon: Castle,
   },
   {
     value: "hotels",
@@ -50,11 +74,50 @@ const tabs: {
     icon: Building2,
   },
   {
-    value: "attractions",
-    label: "Attractions",
-    icon: Landmark,
+    value: "restaurants",
+    label: "Restaurants",
+    icon: Utensils,
   },
 ];
+
+function getCategoryLabel(category: string): string {
+  const labelMap: Record<string, string> = {
+    "heritage.unesco": "UNESCO Heritage",
+    "tourism.attraction": "Attraction",
+    "tourism.sights": "Sight",
+    "natural.mountain": "Mountain",
+    "natural.water": "Water",
+    "natural.forest": "Forest",
+    "natural.protected_area": "Nature Reserve",
+    national_park: "National Park",
+    "leisure.park": "Park",
+    "leisure.park.garden": "Garden",
+    "leisure.park.nature_reserve": "Nature Reserve",
+    "leisure.picnic": "Picnic Spot",
+    "entertainment.museum": "Museum",
+    "entertainment.culture": "Culture",
+    "religion.place_of_worship": "Temple",
+    "catering.restaurant": "Restaurant",
+    "catering.cafe": "Cafe",
+    "accommodation.hotel": "Hotel",
+    "accommodation.guest_house": "Guest House",
+  };
+
+  if (labelMap[category]) return labelMap[category];
+
+  const parts = category.split(".");
+  const last = parts[parts.length - 1];
+
+  return last?.replaceAll("_", " ") ?? "Place";
+}
+
+function getDistanceLabel(meters: number): string {
+  const km = meters / 1000;
+
+  if (km < 1) return `${Math.round(meters)} m`;
+
+  return `${km.toFixed(1)} km`;
+}
 
 async function fetchPlaces(
   type: PlaceType,
@@ -63,13 +126,25 @@ async function fetchPlaces(
   setPlaces: (places: Place[]) => void,
   setLoadingPlaces: (loading: boolean) => void,
   setError: (error: string) => void,
+  name?: string,
 ) {
   try {
     setLoadingPlaces(true);
     setError("");
 
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+      category: type,
+      limit: "12",
+    });
+
+    if (name?.trim()) {
+      params.set("name", name.trim());
+    }
+
     const response = await fetch(
-      `/api/places/${type}?latitude=${latitude}&longitude=${longitude}`,
+      `/api/places?${params.toString()}`,
     );
 
     const result = await response.json();
@@ -105,7 +180,7 @@ export default function ExplorePage() {
     useState<LocationData | null>(null);
 
   const [activeType, setActiveType] =
-    useState<PlaceType>("attractions");
+    useState<PlaceType>("all");
 
   const [places, setPlaces] =
     useState<Place[]>([]);
@@ -117,6 +192,12 @@ export default function ExplorePage() {
     useState(false);
 
   const [error, setError] = useState("");
+
+  const [placeSearch, setPlaceSearch] =
+    useState("");
+
+  const [activePlaceSearch, setActivePlaceSearch] =
+    useState("");
 
   const searchDestination = async (
     value: string,
@@ -169,6 +250,7 @@ export default function ExplorePage() {
         setPlaces,
         setLoadingPlaces,
         setError,
+        activePlaceSearch || undefined,
       );
     } catch (err) {
       console.error(
@@ -207,8 +289,9 @@ export default function ExplorePage() {
       setPlaces,
       setLoadingPlaces,
       setError,
+      activePlaceSearch || undefined,
     );
-  }, [activeType, location]);
+  }, [activeType, location, activePlaceSearch]);
 
 
   const handleSearch = async (
@@ -242,8 +325,8 @@ export default function ExplorePage() {
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
-            Discover restaurants, hotels, and attractions
-            around the places you want to visit.
+            Discover the best restaurants, hotels, and attractions
+            at the places you want to visit.
           </p>
         </div>
 
@@ -260,7 +343,7 @@ export default function ExplorePage() {
               onChange={(e) =>
                 setSearchInput(e.target.value)
               }
-              placeholder="Search a destination..."
+              placeholder="Search a destination (e.g. Kolhapur, Paris, Tokyo)..."
               className="h-11 rounded-xl pl-11 pr-24"
             />
 
@@ -294,6 +377,43 @@ export default function ExplorePage() {
                 {location.location.country}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Place search */}
+        {location && (
+          <div className="mt-4 max-w-3xl">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setActivePlaceSearch(placeSearch);
+              }}
+              className="relative"
+            >
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={placeSearch}
+                onChange={(e) =>
+                  setPlaceSearch(e.target.value)
+                }
+                placeholder={`Search places in ${location.location.name}... (e.g. temple, lake, museum)`}
+                className="h-10 rounded-xl pl-9 pr-9"
+              />
+
+              {placeSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlaceSearch("");
+                    setActivePlaceSearch("");
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </form>
           </div>
         )}
 
@@ -338,15 +458,19 @@ export default function ExplorePage() {
         <section className="mt-6">
           <div className="mb-4">
             <h2 className="text-lg font-semibold tracking-tight">
-              {tabs.find(
-                (tab) =>
-                  tab.value === activeType,
-              )?.label ?? "Places"}
+              {activePlaceSearch
+                ? `${activePlaceSearch} in ${location?.location.name ?? destination}`
+                : tabs.find(
+                    (tab) =>
+                      tab.value === activeType,
+                  )?.label ?? "Places"}
             </h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
               {location
-                ? `Around ${location.location.name}`
+                ? activePlaceSearch
+                  ? `Showing results for "${activePlaceSearch}" in ${location.location.name}`
+                  : `Best places in ${location.location.name}`
                 : `Explore ${destination}`}
             </p>
           </div>
@@ -355,7 +479,7 @@ export default function ExplorePage() {
             <div className="flex min-h-48 items-center justify-center rounded-3xl border border-border/60 bg-muted/20">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
-                Finding places...
+                Finding the best places...
               </div>
             </div>
           ) : places.length === 0 ? (
@@ -364,7 +488,7 @@ export default function ExplorePage() {
                 <MapPin className="mx-auto size-8 text-muted-foreground" />
 
                 <p className="mt-3 font-medium">
-                  No places found
+                  No popular places found
                 </p>
 
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -390,13 +514,7 @@ export default function ExplorePage() {
                       </h3>
 
                       <p className="mt-1 text-xs capitalize text-muted-foreground">
-                        {place.category
-                          .split(".")
-                          .pop()
-                          ?.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? "Place"}
+                        {getCategoryLabel(place.category)}
                       </p>
                     </div>
                   </div>
@@ -410,10 +528,18 @@ export default function ExplorePage() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between border-t pt-4">
-                    <span className="text-xs text-muted-foreground">
-                      {place.latitude.toFixed(4)},{" "}
-                      {place.longitude.toFixed(4)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {place.latitude.toFixed(4)},{" "}
+                        {place.longitude.toFixed(4)}
+                      </span>
+
+                      {place.distance > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          · {getDistanceLabel(place.distance)}
+                        </span>
+                      )}
+                    </div>
 
                     <span className="text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
                       View place
