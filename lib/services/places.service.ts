@@ -83,7 +83,6 @@ const NATURE_CATEGORIES = [
   "leisure.park.nature_reserve",
   "leisure.picnic",
   "leisure.picnic.bbq",
-  "national_park",
 ];
 
 const HISTORICAL_CATEGORIES = [
@@ -97,12 +96,14 @@ const HISTORICAL_CATEGORIES = [
 ];
 
 const ALL_CATEGORIES = [
-  ...ATTRACTION_CATEGORIES,
-  ...TEMPLE_CATEGORIES,
-  ...NATURE_CATEGORIES,
-  ...HISTORICAL_CATEGORIES,
-  ...RESTAURANT_CATEGORIES,
-  ...HOTEL_CATEGORIES,
+  ...new Set([
+    ...ATTRACTION_CATEGORIES,
+    ...TEMPLE_CATEGORIES,
+    ...NATURE_CATEGORIES,
+    ...HISTORICAL_CATEGORIES,
+    ...RESTAURANT_CATEGORIES,
+    ...HOTEL_CATEGORIES,
+  ]),
 ];
 
 export type PlaceCategory =
@@ -146,8 +147,7 @@ const CATEGORY_PRIORITY: Record<string, number> = {
   "natural.mountain.peak": 83,
   "natural.water": 80,
   "natural.forest": 78,
-  "natural.protected_area": 77,
-  "national_park": 85,
+  "natural.protected_area": 85,
   "leisure.park": 65,
   "leisure.park.garden": 63,
   "leisure.park.nature_reserve": 72,
@@ -173,7 +173,6 @@ const TOURISM_HEAVY_PREFIXES = [
   "tourism",
   "heritage",
   "natural",
-  "national_park",
 ];
 
 const HERITAGE_PREFIXES = [
@@ -184,7 +183,6 @@ const HERITAGE_PREFIXES = [
 
 const NATURE_DESTINATION_PREFIXES = [
   "natural",
-  "national_park",
   "leisure.park.nature_reserve",
 ];
 
@@ -334,8 +332,9 @@ async function fetchGeoapify(
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => "");
     throw new Error(
-      `Geoapify API error: ${response.status}`,
+      `Geoapify API error: ${response.status} — ${body}`,
     );
   }
 
@@ -463,7 +462,6 @@ function isTouristRelevant(
     "sport",
     "accommodation",
     "catering",
-    "national_park",
   ];
   return cats.some((c) =>
     relevantPrefixes.some((r) => c.startsWith(r)),
