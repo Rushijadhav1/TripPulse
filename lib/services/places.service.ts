@@ -72,7 +72,10 @@ const TEMPLE_CATEGORIES = [
 
 const NATURE_CATEGORIES = [
   "natural.water",
-  "natural.water.waterfall",
+  "natural.water.hot_spring",
+  "natural.water.geyser",
+  "natural.water.spring",
+  "natural.water.whitewater",
   "natural.mountain",
   "natural.mountain.peak",
   "natural.forest",
@@ -141,7 +144,10 @@ const CATEGORY_PRIORITY: Record<string, number> = {
   "tourism.sights.castle": 92,
   "tourism.sights.ruines": 87,
   "tourism.sights.lighthouse": 82,
-  "natural.water.waterfall": 88,
+  "natural.water.hot_spring": 90,
+  "natural.water.geyser": 90,
+  "natural.water.whitewater": 88,
+  "natural.water.spring": 82,
   "natural.mountain": 82,
   "natural.mountain.peak": 83,
   "natural.water": 80,
