@@ -64,9 +64,8 @@ const ATTRACTION_CATEGORIES = [
 
 const TEMPLE_CATEGORIES = [
   "religion.place_of_worship",
-  "religion.place_of_worship.hindu",
-  "religion.place_of_worship.buddhist",
-  "religion.place_of_worship.jain",
+  "religion.place_of_worship.hinduism",
+  "religion.place_of_worship.buddhism",
   "tourism.attraction",
   "tourism.sights",
 ];
@@ -157,9 +156,8 @@ const CATEGORY_PRIORITY: Record<string, number> = {
   "entertainment.culture": 70,
   "entertainment.theme_park": 80,
   "religion.place_of_worship": 78,
-  "religion.place_of_worship.hindu": 80,
-  "religion.place_of_worship.buddhist": 79,
-  "religion.place_of_worship.jain": 79,
+  "religion.place_of_worship.hinduism": 80,
+  "religion.place_of_worship.buddhism": 79,
   "catering.restaurant": 50,
   "catering.cafe": 45,
   "accommodation.hotel": 55,
