@@ -6,17 +6,29 @@ const FORECAST_URL =
 
 const FETCH_TIMEOUT = 10_000;
 
+const MAX_RETRIES = 2;
+
 async function fetchWithTimeout(
   url: URL | string,
   timeoutMs = FETCH_TIMEOUT,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (response.ok || attempt === MAX_RETRIES) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt === MAX_RETRIES) throw lastError;
+    }
+    await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
   }
+  throw lastError;
 }
 
 export type WeatherResult = {
@@ -92,7 +104,10 @@ export async function getWeather(
   const geocodeResponse = await fetchWithTimeout(geocodeUrl);
 
   if (!geocodeResponse.ok) {
-    throw new Error("Failed to find destination.");
+    const body = await geocodeResponse.text().catch(() => "");
+    throw new Error(
+      `Failed to geocode destination (HTTP ${geocodeResponse.status}): ${body}`,
+    );
   }
 
   const geocodeData =
@@ -150,7 +165,10 @@ export async function getWeather(
   const forecastResponse = await fetchWithTimeout(forecastUrl);
 
   if (!forecastResponse.ok) {
-    throw new Error("Failed to fetch weather forecast.");
+    const body = await forecastResponse.text().catch(() => "");
+    throw new Error(
+      `Failed to fetch weather forecast (HTTP ${forecastResponse.status}): ${body}`,
+    );
   }
 
   const forecastData =

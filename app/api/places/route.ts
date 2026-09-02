@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
     const limit = Math.min(
       Number(searchParams.get("limit") ?? 12),
-      20,
+      30,
     );
 
     const name = searchParams.get("name") ?? undefined;
